@@ -105,7 +105,9 @@ typedef enum	regex_flags_e
 
 int regex_compile(regex_t *reg, char *exp, int flags)
 {
-	uint64_t	dot_set[2] = {~(uint64_t)0, ~(uint64_t)0};
+	uint64_t		dot_set[2] = {~(uint64_t)0, ~(uint64_t)0};
+	const uint64_t	w_set[2] = {0x0, 0x0};
+	const 
 
 	if (flags & RF_NO_NEWLINE_DOT)
 		UNSET_SET_CODE(dot_set, '\n');
@@ -141,7 +143,7 @@ int regex_compile(regex_t *reg, char *exp, int flags)
 					}
 					else if (exp[i] == '\\')
 					{
-
+						strchr()
 					}
 					else
 						SET_SET_CODE(cc->set, exp[i]);
