@@ -91,8 +91,10 @@ typedef struct	regex_s
 
 #define REGEX_NON_REPEAT_CHAR "[$^"
 #define REGEX_META_CHAR ".[{()\\*+?|^$"
-#define REGEX_ESCAPE_GROUP "dlsuwDLSUWbBAzZ123456789"
 //                       ooo  ooooo
+#define REGEX_ESCAPE_GROUP "wWsSdD" //word, space, digit, maj = ^
+									//[A-Za-z0-9_], [\t\r\n\f ], [0-9]
+#define REGEX_ESCAPE_META "dlsuwDLSUWbBAzZ123456789"
 
 typedef enum	regex_flags_e
 {
@@ -115,11 +117,48 @@ int regex_compile(regex_t *reg, char *exp, int flags)
 		regex_code_t	*cc = &reg->code[reg->code_size];
 		switch (exp[exp_ind])
 		{
-			case '[':
+			case '[': //[1-9] [-+] [^-] [^0-9] [^z\W-q] (all but z or q)
+				if (cc->type != re_undefined)
+					cc = &reg->code[++reg->code_size];
+				// if (strchr(&exp[exp_ind], ']') == NULL)
+				// 	error();
+				if (exp[exp_ind + 1] == '^')
+				{
+					cc->type = re_nset;
+					++exp_ind;
+				}
+				else
+					cc->type = re_set;
+				cc->repeat[0] = 1;
+				cc->repeat[1] = 1;
+				cc->set[0] = 0;
+				cc->set[1] = 0;
+				for (int i = ++exp_ind; exp[i] != ']'; ++i)
+				{
+					if (exp[i + 1] == '-')
+					{
+
+					}
+					else if (exp[i] == '\\')
+					{
+
+					}
+					else
+						SET_SET_CODE(cc->set, exp[i]);
+				}
 			break;
 			case '*': case '+': case '?':
 				// if (cc->type == re_undefined)
 				// 	error();
+				if (cc->type == re_string && cc->str_len > 1)
+				{
+					reg->code[++reg->code_size].type == re_set;
+					reg->code[reg->code_size].set[0] = 0;
+					reg->code[reg->code_size].set[1] = 0;
+					SET_SET_CODE(reg->code[reg->code_size].set, cc->str[--cc->str_len - 1]);
+					cc->str[cc->str_len - 1] = '\0';
+					cc = &reg->code[reg->code_size];
+				}
 				cc->repeat[0] = exp[exp_ind] == '+';
 				cc->repeat[1] = -1 + 2 * (exp[exp_ind] == '?');
 				++reg->code_size;
@@ -127,6 +166,15 @@ int regex_compile(regex_t *reg, char *exp, int flags)
 			case '{':
 				// if (cc->type == re_undefined)
 				// 	error();
+				if (cc->type == re_string && cc->str_len > 1)
+				{
+					reg->code[++reg->code_size].type == re_set;
+					reg->code[reg->code_size].set[0] = 0;
+					reg->code[reg->code_size].set[1] = 0;
+					SET_SET_CODE(reg->code[reg->code_size].set, cc->str[--cc->str_len - 1]);
+					cc->str[cc->str_len - 1] = '\0';
+					cc = &reg->code[reg->code_size];
+				}
 				++exp_ind;
 				// if (strchr(&exp[exp_ind], '}') == NULL)
 				// 	error();
@@ -186,7 +234,7 @@ int regex_compile(regex_t *reg, char *exp, int flags)
 					{
 						char *tmp;
 						if ((tmp = strchr(REGEX_META_CHAR, exp[i])) != NULL)
-							if (*tmp == '\\' && strchr(REGEX_ESCAPE_GROUP, exp[i + 1]) == NULL)
+							if (*tmp == '\\' && strchr(REGEX_ESCAPE_META, exp[i + 1]) == NULL)
 							{
 								++i;
 								if (!pass)
